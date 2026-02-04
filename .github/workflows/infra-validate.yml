@@ -1,0 +1,47 @@
+name: infra-validate
+
+on:
+  pull_request:
+    paths:
+      - "infra/bicep/**"
+      - "scripts/infra/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Bicep build + lint
+        run: |
+          az bicep install
+          az bicep build --file infra/bicep/main.rg.bicep
+
+      - name: Validate deployment (dev)
+        run: |
+          az deployment group validate \
+            --resource-group "${{ secrets.AZURE_RG_DEV }}" \
+            --template-file infra/bicep/main.rg.bicep \
+            --parameters infra/bicep/params/dev.bicepparam \
+            --parameters postgresAdminPassword='${{ secrets.POSTGRES_ADMIN_PASSWORD }}'
+
+      - name: What-if (dev) — fail on deletes
+        shell: pwsh
+        env:
+          POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+        run: |
+          ./scripts/infra/whatif.ps1 -Environment dev -ResourceGroupName "${{ secrets.AZURE_RG_DEV }}" -FailOnDeleteOrReplace
+

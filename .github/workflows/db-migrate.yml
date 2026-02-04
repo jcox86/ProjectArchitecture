@@ -1,0 +1,40 @@
+# module: workflows.dbMigrate
+# purpose: Apply Flyway migrations for catalog + tenant schemas as a separate pipeline gate.
+# exports: []
+# patterns:
+#   - db_migrations_as_pipeline: schema changes deployed explicitly (before app traffic shift)
+# notes:
+#   - Baseline strategy is to run Flyway inside the ACA environment (Container Apps Job) to avoid opening Postgres to CI runner IPs.
+
+name: db-migrate
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "db/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  migrate-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Flyway (TODO)
+        run: |
+          echo "TODO: run Flyway migrations (catalog + tenant) via Container Apps Job or one-off container."
+          echo "Recommended: create an ACA Job (Microsoft.App/jobs) that runs flyway/flyway against Postgres, then trigger it here."
+

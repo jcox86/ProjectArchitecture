@@ -1,0 +1,15 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# Bicep build artifacts
+infra/bicep/**/*.json
+
+# Node
+**/node_modules/
+**/dist/
+
+# Local env files
+.env
+.env.*
+

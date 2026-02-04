@@ -1,0 +1,70 @@
+# module: workflows.appDeploy
+# purpose: Build/push app images and deploy to Azure Container Apps using blue/green traffic shifting.
+# exports: []
+# patterns:
+#   - separate_pipelines: infra deploy is separate from app deploy
+#   - aca_blue_green: uses ACA multiple revisions + labels + traffic splitting
+# notes:
+#   - Requires Azure OIDC secrets and ACR access.
+#   - Traffic splitting docs: https://learn.microsoft.com/en-us/azure/container-apps/traffic-splitting
+
+name: app-deploy
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "src/**"
+      - "scripts/deploy/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve ACR login server
+        id: acr
+        run: |
+          echo "loginServer=$(az acr show -n '${{ secrets.ACR_NAME }}' --query loginServer -o tsv)" >> $GITHUB_OUTPUT
+
+      - name: Build & push images (TODO)
+        run: |
+          echo "TODO: build API/Worker/AdminUi images and push to ACR"
+          echo "ACR: ${{ steps.acr.outputs.loginServer }}"
+
+      - name: Deploy API (blue/green)
+        shell: pwsh
+        env:
+          RG_NAME: ${{ secrets.AZURE_RG_DEV }}
+          APP_NAME: ${{ secrets.APP_NAME }}
+        run: |
+          $image = "${{ steps.acr.outputs.loginServer }}/${{ secrets.APP_NAME }}-api:latest"
+          ./scripts/deploy/aca-bluegreen.ps1 -ResourceGroupName $env:RG_NAME -ContainerAppName "$env:APP_NAME-api-dev" -Image $image
+
+      - name: Deploy Admin UI (blue/green)
+        shell: pwsh
+        env:
+          RG_NAME: ${{ secrets.AZURE_RG_DEV }}
+          APP_NAME: ${{ secrets.APP_NAME }}
+        run: |
+          $image = "${{ steps.acr.outputs.loginServer }}/${{ secrets.APP_NAME }}-adminui:latest"
+          ./scripts/deploy/aca-bluegreen.ps1 -ResourceGroupName $env:RG_NAME -ContainerAppName "$env:APP_NAME-adminui-dev" -Image $image
+
+      - name: Deploy Worker (simple update)
+        run: |
+          echo "TODO: deploy worker image (no ingress traffic shifting needed)"
+
