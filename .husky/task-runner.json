@@ -15,6 +15,17 @@
          ]
       },
       {
+         "name": "adminui-lint-fix",
+         "group": "pre-commit",
+         "command": "npm",
+         "args": [
+            "--prefix",
+            "src/AdminUi",
+            "run",
+            "lint:fix"
+         ]
+      },
+      {
          "name": "dotnet-format",
          "group": "pre-commit",
          "command": "dotnet",
