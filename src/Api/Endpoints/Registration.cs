@@ -7,6 +7,7 @@ patterns:
   - minimal_api
 */
 using System;
+using System.Security.Claims;
 using Dapper;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -60,6 +61,72 @@ public static class RegistrationEndpoints
 
             return Results.NotFound();
         });
+
+        adminGroup.MapPost("/telemetry/logs", (
+            UiLogBatch batch,
+            HttpContext httpContext,
+            ILogger<Program> logger) =>
+        {
+            if (batch.Logs is null || batch.Logs.Count == 0)
+            {
+                return Results.BadRequest("Missing logs.");
+            }
+
+            if (batch.Logs.Count > 50)
+            {
+                return Results.BadRequest("Too many logs in a single request.");
+            }
+
+            var subjectId = httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)
+                ?? httpContext.User.FindFirstValue("oid")
+                ?? httpContext.User.FindFirstValue("sub");
+
+            foreach (var log in batch.Logs)
+            {
+                var level = log.Level?.ToLowerInvariant() switch
+                {
+                    "debug" => LogLevel.Debug,
+                    "info" => LogLevel.Information,
+                    "warn" => LogLevel.Warning,
+                    "error" => LogLevel.Error,
+                    _ => LogLevel.Information
+                };
+
+                var message = string.IsNullOrWhiteSpace(log.Message)
+                    ? "UI log message missing."
+                    : log.Message.Length > 512
+                        ? log.Message[..512]
+                        : log.Message;
+
+                using var scope = logger.BeginScope(new Dictionary<string, object?>
+                {
+                    ["ui.correlationId"] = log.CorrelationId,
+                    ["ui.userId"] = log.UserId,
+                    ["ui.tenantId"] = log.TenantId,
+                    ["ui.route"] = log.Route,
+                    ["ui.component"] = log.Component,
+                    ["ui.timestamp"] = log.Timestamp,
+                    ["ui.context"] = log.Context,
+                    ["ui.subjectId"] = subjectId
+                });
+
+                if (log.Error is not null)
+                {
+                    logger.Log(level, "UI log: {Message}. Error: {ErrorName} {ErrorMessage}",
+                        message,
+                        log.Error.Name,
+                        log.Error.Message);
+                }
+                else
+                {
+                    logger.Log(level, "UI log: {Message}", message);
+                }
+            }
+
+            return Results.Accepted();
+        })
+        .WithName("AdminUiLogs")
+        .WithTags("Admin");
 
         return adminGroup;
     }
@@ -121,4 +188,20 @@ public static class RegistrationEndpoints
     }
 
     private sealed record SubjectAttributeInvalidationRequest(string SubjectId, Guid? TenantId);
+
+    private sealed record UiLogBatch(IReadOnlyList<UiLogEvent> Logs);
+
+    private sealed record UiLogEvent(
+        string Level,
+        string Message,
+        string Timestamp,
+        string CorrelationId,
+        string? UserId,
+        string? TenantId,
+        string? Route,
+        string? Component,
+        IReadOnlyDictionary<string, string>? Context,
+        UiLogError? Error);
+
+    private sealed record UiLogError(string? Name, string? Message, string? Stack);
 }

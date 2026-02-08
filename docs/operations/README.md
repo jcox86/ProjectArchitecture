@@ -16,7 +16,7 @@ This folder contains operational guidance: how to deploy, observe, troubleshoot,
 
 - **Environment model**: dev/staging/prod isolation, access controls, locks.
 - **Deployments**: Container Apps revisions (blue/green), DB migrations (expand/contract).
-- **Observability**: logs/traces/metrics, dashboards, alerting, SLOs.
+- **Observability**: logs/traces/metrics, dashboards, alerting, SLOs. See `docs/operations/observability.md`.
 - **Runbooks**: common incidents (API errors, stuck queues, degraded Postgres/Redis, Front Door issues).
 - **Backups & DR**: restore procedures and drill cadence.
 - **Capacity & cost**: scale rules, limits/quotas, budgets.

@@ -13,13 +13,18 @@ patterns:
 */
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.ServiceDiscovery;
 using OpenTelemetry;
+using OpenTelemetry.Context.Propagation;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Serilog;
+using Serilog.Enrichers.Span;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -33,6 +38,7 @@ public static class Extensions
 
     public static TBuilder AddServiceDefaults<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
+        builder.ConfigureSerilog();
         builder.ConfigureOpenTelemetry();
 
         builder.AddDefaultHealthChecks();
@@ -57,15 +63,49 @@ public static class Extensions
         return builder;
     }
 
+    public static TBuilder ConfigureSerilog<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
+    {
+        Log.Logger = new LoggerConfiguration()
+            .ReadFrom.Configuration(builder.Configuration)
+            .Enrich.FromLogContext()
+            .Enrich.WithSpan()
+            .Enrich.WithProperty("service.name", builder.Environment.ApplicationName)
+            .Enrich.WithProperty("environment", builder.Environment.EnvironmentName)
+            .WriteTo.Console()
+            .CreateLogger();
+
+        builder.Logging.ClearProviders();
+        builder.Logging.AddSerilog(Log.Logger, dispose: true);
+
+        return builder;
+    }
+
     public static TBuilder ConfigureOpenTelemetry<TBuilder>(this TBuilder builder) where TBuilder : IHostApplicationBuilder
     {
+        Sdk.SetDefaultTextMapPropagator(new CompositeTextMapPropagator(new TextMapPropagator[]
+        {
+            new TraceContextPropagator(),
+            new BaggagePropagator()
+        }));
+
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
             logging.IncludeScopes = true;
+            logging.ParseStateValues = true;
         });
 
+        var serviceName = builder.Environment.ApplicationName;
+        var serviceVersion = typeof(Extensions).Assembly.GetName().Version?.ToString() ?? "unknown";
+        var environmentName = builder.Environment.EnvironmentName;
+
         builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource
+                .AddService(serviceName, serviceVersion: serviceVersion, serviceInstanceId: Environment.MachineName)
+                .AddAttributes(new Dictionary<string, object>
+                {
+                    ["deployment.environment"] = environmentName
+                }))
             .WithMetrics(metrics =>
             {
                 metrics.AddAspNetCoreInstrumentation()
@@ -74,16 +114,18 @@ public static class Extensions
             })
             .WithTracing(tracing =>
             {
-                tracing.AddSource(builder.Environment.ApplicationName)
-                    .AddAspNetCoreInstrumentation(tracing =>
+                tracing.AddSource(serviceName)
+                    .AddAspNetCoreInstrumentation(options =>
+                    {
+                        options.RecordException = true;
                         // Exclude health check requests from tracing
-                        tracing.Filter = context =>
+                        options.Filter = context =>
                             !context.Request.Path.StartsWithSegments(HealthEndpointPath)
-                            && !context.Request.Path.StartsWithSegments(AlivenessEndpointPath)
-                    )
+                            && !context.Request.Path.StartsWithSegments(AlivenessEndpointPath);
+                    })
                     // Uncomment the following line to enable gRPC instrumentation (requires the OpenTelemetry.Instrumentation.GrpcNetClient package)
                     //.AddGrpcClientInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation(options => options.RecordException = true);
             });
 
         builder.AddOpenTelemetryExporters();
@@ -138,7 +180,8 @@ public static class Extensions
     {
         // Adding health checks endpoints to applications in non-development environments has security implications.
         // See https://aka.ms/dotnet/aspire/healthchecks for details before enabling these endpoints in non-development environments.
-        if (app.Environment.IsDevelopment())
+        var exposeHealth = app.Configuration.GetValue("HealthChecks:Expose", app.Environment.IsDevelopment());
+        if (exposeHealth)
         {
             // All health checks must pass for app to be considered ready to accept traffic after starting
             app.MapHealthChecks(HealthEndpointPath);

@@ -10,6 +10,7 @@ using ProjectArchitecture.Api.Auth;
 using ProjectArchitecture.Api.Endpoints;
 using ProjectArchitecture.Api.Middleware;
 using ProjectArchitecture.Infrastructure;
+using Serilog;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,6 +45,7 @@ try
     app.UseHttpsRedirection();
     app.UseAuthentication();
     app.UseMiddleware<TenantResolutionMiddleware>();
+    app.UseMiddleware<CorrelationContextMiddleware>();
     app.UseAuthorization();
     app.UseMiddleware<IdempotencyMiddleware>();
 
@@ -54,11 +56,12 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine(ex.Message);
+    Log.Fatal(ex, "API host terminated unexpectedly.");
 }
 finally
 {
-    Console.WriteLine("API stopped");
+    Log.Information("API stopped");
+    Log.CloseAndFlush();
 }
 
 public partial class Program { }

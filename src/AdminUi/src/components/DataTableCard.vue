@@ -17,7 +17,7 @@ patterns:
   </n-card>
 </template>
 
-<script setup lang="ts">
+<script setup lang="ts" generic="T">
 /*
 module: src.adminUi.components.dataTableCard
 purpose: Provide typed props for the DataTableCard component.
@@ -26,26 +26,13 @@ exports:
 patterns:
   - vue_script_setup
 */
-import type { PropType } from "vue";
 import type { DataTableColumns } from "naive-ui";
 
-defineProps({
-  title: { type: String, required: true },
-  columns: {
-    type: Array as PropType<DataTableColumns<unknown>>,
-    required: true
-  },
-  data: {
-    type: Array as PropType<unknown[]>,
-    required: true
-  },
-  pagination: {
-    type: [Object, Boolean] as PropType<false | { pageSize: number }>,
-    default: undefined
-  },
-  loading: {
-    type: Boolean,
-    default: false
-  }
-});
+defineProps<{
+  title: string;
+  columns: DataTableColumns<T>;
+  data: T[];
+  pagination?: false | { pageSize: number };
+  loading?: boolean;
+}>();
 </script>

@@ -8,6 +8,7 @@ patterns:
   - outbox
   - storage_queues
 */
+using System.Diagnostics;
 using Microsoft.Extensions.Options;
 using ProjectArchitecture.Application.Messaging;
 using ProjectArchitecture.Application.Tenancy;
@@ -21,6 +22,8 @@ public sealed class Worker(
     IOptions<OutboxDispatcherOptions> options,
     ILogger<Worker> logger) : BackgroundService
 {
+    private static readonly ActivitySource ActivitySource =
+        new(typeof(Worker).Assembly.GetName().Name ?? "ProjectArchitecture.Worker");
     private readonly OutboxDispatcherOptions _options = options.Value;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -66,6 +69,29 @@ public sealed class Worker(
                     "Outbox message {OutboxId} exceeded max attempts; moving to poison queue.",
                     record.OutboxId);
             }
+
+            using var activity = ActivitySource.StartActivity("outbox.dispatch", ActivityKind.Consumer);
+            activity?.SetTag("messaging.system", "azure.storage.queues");
+            activity?.SetTag("messaging.destination.name", queueName);
+            activity?.SetTag("messaging.operation", "process");
+            activity?.SetTag("outbox.id", record.OutboxId);
+            activity?.SetTag("tenant.id", tenant.TenantId);
+            if (!string.IsNullOrWhiteSpace(record.CorrelationId))
+            {
+                activity?.SetTag("correlation.id", record.CorrelationId);
+                activity?.AddBaggage("correlation.id", record.CorrelationId);
+            }
+
+            activity?.AddBaggage("tenant.id", tenant.TenantId.ToString());
+
+            using var scope = logger.BeginScope(new Dictionary<string, object?>
+            {
+                ["tenantId"] = tenant.TenantId.ToString(),
+                ["outboxId"] = record.OutboxId,
+                ["messageType"] = record.MessageType,
+                ["queueName"] = queueName,
+                ["correlationId"] = record.CorrelationId
+            });
 
             var envelope = new QueueEnvelope(
                 record.OutboxId,

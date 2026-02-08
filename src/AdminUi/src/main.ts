@@ -12,11 +12,14 @@ import App from "./App.vue";
 import { naive } from "./naive";
 import { router } from "./router";
 import { useAuth } from "./auth/useAuth";
+import { initUiLogging } from "./telemetry/logger";
 import "./styles.css";
 
 const app = createApp(App);
 app.use(router);
 app.use(naive);
+
+initUiLogging();
 
 const auth = useAuth();
 auth

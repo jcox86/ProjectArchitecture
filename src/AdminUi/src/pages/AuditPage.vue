@@ -48,6 +48,7 @@ import type { AuditRecord } from "../api/types";
 import ActionBar from "../components/ActionBar.vue";
 import DataTableCard from "../components/DataTableCard.vue";
 import PageHeader from "../components/PageHeader.vue";
+import { uiLogger } from "../telemetry/logger";
 
 const message = useMessage();
 
@@ -94,6 +95,13 @@ const loadAuditLogs = async () => {
         : "Failed to load audit logs.";
     error.value = messageText;
     message.error(messageText);
+    uiLogger.error("Failed to load audit logs.", {
+      error: loadError,
+      component: "AuditPage",
+      context: {
+        action: "loadAuditLogs"
+      }
+    });
   } finally {
     isLoading.value = false;
   }

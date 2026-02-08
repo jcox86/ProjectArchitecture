@@ -9,9 +9,7 @@ patterns:
 */
 import { appConfig } from "../appConfig";
 import { useAuth } from "../auth/useAuth";
-
-const createCorrelationId = () =>
-  globalThis.crypto?.randomUUID?.() ?? `cid-${Date.now()}`;
+import { createRequestCorrelationId } from "../telemetry/correlation";
 
 const buildUrl = (path: string) => {
   const normalized = path.startsWith("/") ? path : `/${path}`;
@@ -31,7 +29,7 @@ const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`,
-      "x-correlation-id": createCorrelationId(),
+      "X-Correlation-ID": createRequestCorrelationId(),
       ...(init?.headers ?? {})
     }
   });

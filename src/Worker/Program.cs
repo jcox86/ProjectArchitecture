@@ -8,6 +8,7 @@ patterns:
 */
 using ProjectArchitecture.Infrastructure;
 using ProjectArchitecture.Worker;
+using Serilog;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -27,9 +28,10 @@ try
 }
 catch (Exception ex)
 {
-    Console.WriteLine(ex.Message);
+    Log.Fatal(ex, "Worker host terminated unexpectedly.");
 }
 finally
 {
-    Console.WriteLine("Worker stopped");
+    Log.Information("Worker stopped");
+    Log.CloseAndFlush();
 }
