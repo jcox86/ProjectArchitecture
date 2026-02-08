@@ -1,0 +1,39 @@
+---
+description: Require module headers for new/edited comment-capable files
+globs: "**/*.{bicep,bicepparam,ps1,psm1,cs,ts,tsx,vue,sql,md,yml,yaml}"
+alwaysApply: false
+module: cursor.rules.moduleHeaders
+purpose: Ensure files begin with the standard YAML-in-comment module header for fast orientation and safe AI edits.
+exports:
+  - standard: module header required keys + wrappers
+patterns:
+  - module_header
+notes:
+  - Existing legacy files may not have headers yet; add/update headers when touching a file.
+---
+
+# Module headers (required)
+
+## Standard
+
+Follow `docs/ai/module-headers.md`.
+
+Required YAML keys:
+
+- `module` (prefix must match `docs/ai/module-map.yml`)
+- `purpose` (1–2 sentences)
+- `exports` (public entrypoints / outputs / commands)
+- `patterns` (required patterns used here)
+
+## Wrappers by file type (first non-empty content)
+
+- `*.bicep`, `*.bicepparam`, `*.cs`, `*.ts`, `*.tsx`: `/* ... */`
+- `*.ps1`, `*.psm1`: `<# ... #>`
+- `*.vue`, `*.md`: `<!-- ... -->`
+- `*.sql`: `-- ` prefixed YAML lines
+- `*.yml`, `*.yaml`: `# ` prefixed YAML lines
+
+## Special case: `.mdc` and `SKILL.md`
+
+Rules and skills must start with YAML frontmatter. Include the module header keys inside the same frontmatter block (do not add a second header).
+

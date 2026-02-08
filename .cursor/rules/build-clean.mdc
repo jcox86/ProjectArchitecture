@@ -1,0 +1,37 @@
+---
+description: Keep API and client builds warning-free
+alwaysApply: true
+module: cursor.rules.buildClean
+purpose: Ensure API and client builds complete without warnings or errors.
+exports:
+  - rule: build clean for dotnet and npm
+patterns:
+  - build_hygiene
+---
+
+# Build Cleanliness
+
+- Keep `dotnet build` for API projects warning-free; fix obsoletes and analyzer warnings promptly.
+- Keep `npm run build` for client projects warning-free; address type/lint warnings before merge.
+- When adding packages or APIs, update code to current patterns (e.g., TimeProvider-based auth handlers).
+- Do not ignore warnings; treat them as build blockers unless explicitly waived in docs/ADR.
+
+## Examples
+
+```csharp
+// ❌ BAD: obsolete API left in place
+public Foo(ISystemClock clock) : base(options, logger, encoder, clock) {}
+
+// ✅ GOOD: use the new TimeProvider-based constructor
+public Foo(...) : base(options, logger, encoder) {}
+```
+
+```bash
+# ❌ BAD: build emits warnings
+dotnet build
+npm run build
+
+# ✅ GOOD: fix warnings until builds are clean
+dotnet build
+npm run build
+```

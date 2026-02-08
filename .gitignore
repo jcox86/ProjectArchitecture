@@ -1,6 +1,18 @@
+#
+# module: repo.gitignore
+# purpose: Prevent committing build outputs, local env files, and local tooling artifacts.
+# exports:
+#   - ignore: build outputs and local-only files
+# patterns:
+#   - repo_hygiene
+#
+
 # Build outputs
 **/bin/
 **/obj/
+
+# Local .NET tool shims/cache (from `dotnet tool restore`)
+.dotnet/
 
 # Bicep build artifacts
 infra/bicep/**/*.json

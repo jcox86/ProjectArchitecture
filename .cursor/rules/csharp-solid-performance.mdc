@@ -1,0 +1,48 @@
+---
+description: Enforce SOLID principles and performance awareness in C# code
+globs: src/**/*.cs
+alwaysApply: false
+module: cursor.rules.csharpSolidPerformance
+purpose: Guide C# design toward SOLID practices and performance-conscious implementations.
+exports:
+  - rule: solid_principles
+  - rule: performance_considerations
+patterns:
+  - solid
+  - performance
+---
+
+# SOLID + Performance (C#)
+
+Apply SOLID principles when designing classes and methods:
+- **S**ingle Responsibility: one reason to change.
+- **O**pen/Closed: extend behavior without modifying existing code.
+- **L**iskov Substitution: derived types must be substitutable.
+- **I**nterface Segregation: small, focused interfaces.
+- **D**ependency Inversion: depend on abstractions, not concretions.
+
+Consider performance in design and implementation:
+- Avoid unnecessary allocations in hot paths.
+- Prefer streaming/async APIs over buffering where applicable.
+- Use cancellation tokens for long-running or I/O operations.
+- Cache expensive computations if they are reused.
+- Be mindful of sync-over-async and blocking calls.
+
+## Example
+
+```csharp
+public interface IOrderRepository
+{
+    Task<Order?> GetAsync(OrderId id, CancellationToken cancellationToken);
+}
+
+public sealed class OrderService
+{
+    private readonly IOrderRepository _repository;
+
+    public OrderService(IOrderRepository repository) => _repository = repository;
+
+    public Task<Order?> GetAsync(OrderId id, CancellationToken cancellationToken)
+        => _repository.GetAsync(id, cancellationToken);
+}
+```

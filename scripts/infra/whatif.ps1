@@ -22,7 +22,10 @@ param(
   [switch] $FailOnDeleteOrReplace,
 
   [Parameter()]
-  [string] $PostgresAdminPassword
+  [string] $PostgresAdminPassword,
+
+  [Parameter()]
+  [string] $PostgresAppPassword
 )
 
 $ErrorActionPreference = 'Stop'
@@ -43,15 +46,27 @@ function Invoke-InfraWhatIf {
     throw "Missing Postgres admin password. Provide -PostgresAdminPassword or set POSTGRES_ADMIN_PASSWORD."
   }
 
-  $whatIfJson = az deployment group what-if `
-    --resource-group $ResourceGroupName `
-    --template-file $templateFile `
-    --parameters $paramFile `
-    --parameters postgresAdminPassword="$PostgresAdminPassword" `
-    --result-format FullResourcePayloads `
-    --no-pretty-print `
-    --only-show-errors `
-    -o json | ConvertFrom-Json
+  if ([string]::IsNullOrWhiteSpace($PostgresAppPassword)) {
+    $PostgresAppPassword = $env:POSTGRES_APP_PASSWORD
+  }
+
+  $azArgs = @(
+    'deployment', 'group', 'what-if',
+    '--resource-group', $ResourceGroupName,
+    '--template-file', $templateFile,
+    '--parameters', $paramFile,
+    '--parameters', "postgresAdminPassword=$PostgresAdminPassword",
+    '--result-format', 'FullResourcePayloads',
+    '--no-pretty-print',
+    '--only-show-errors',
+    '-o', 'json'
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($PostgresAppPassword)) {
+    $azArgs += @('--parameters', "postgresAppPassword=$PostgresAppPassword")
+  }
+
+  $whatIfJson = az @azArgs | ConvertFrom-Json
 
   # Summarize change types.
   $changes = @($whatIfJson.changes)

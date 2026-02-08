@@ -42,6 +42,7 @@ jobs:
         shell: pwsh
         env:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          POSTGRES_APP_PASSWORD: ${{ secrets.POSTGRES_APP_PASSWORD }}
         run: |
           ./scripts/infra/whatif.ps1 -Environment dev -ResourceGroupName "${{ secrets.AZURE_RG_DEV }}" -FailOnDeleteOrReplace
 

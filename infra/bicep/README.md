@@ -33,8 +33,21 @@ Environment-specific parameters live in `params/` as `.bicepparam` files:
 
 `main.rg.bicep` requires `postgresAdminPassword` (secure). This must **not** be committed in `.bicepparam` files.
 
+Optionally, you can provide a separate application runtime password:
+
+- `postgresAppPassword` (secure): password for the `postgresAppLogin` user (default: `appuser`). If omitted, it defaults to `postgresAdminPassword` (convenient for early dev, but not recommended for hardened deployments).
+
 - **Local**: set `POSTGRES_ADMIN_PASSWORD` in your environment, or pass `-PostgresAdminPassword` to `scripts/infra/deploy.ps1`.
+- **Local (optional)**: set `POSTGRES_APP_PASSWORD` to override the default app password (otherwise it defaults to the admin password).
 - **CI**: store `POSTGRES_ADMIN_PASSWORD` as a GitHub Environment secret (dev/staging/prod) and pass it via workflow env.
+
+The deployment also stores several runtime secrets in **Key Vault** (for Container Apps Key Vault secret references), including:
+
+- `postgres-admin-password`
+- `postgres-app-password`
+- `redis-primary-key`
+- `storage-connection-string` (used for Worker queue autoscaling)
+- `appinsights-connection-string`
 
 ## CI/CD
 

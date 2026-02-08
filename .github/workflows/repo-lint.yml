@@ -1,0 +1,51 @@
+# module: ci.workflows.repoLint
+# purpose: Validate module headers (presence + module/path convention) for files changed in pull requests.
+# exports:
+#   - job: repo-lint
+# patterns:
+#   - repo_linter
+name: repo-lint
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  repo-lint:
+    runs-on: ubuntu-latest
+    env:
+      # Husky is a dev-time hook runner; disable in CI to avoid running `dotnet husky install` during restore.
+      HUSKY: 0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore tools/RepoLinter/RepoLinter.csproj
+
+      - name: Format (verify no changes)
+        run: dotnet format tools/RepoLinter/RepoLinter.csproj --verify-no-changes --no-restore
+
+      - name: Build
+        run: dotnet build tools/RepoLinter/RepoLinter.csproj -c Release --no-restore
+
+      - name: Repo linter (changed files)
+        run: >
+          dotnet run --project tools/RepoLinter/RepoLinter.csproj -c Release --no-build --
+          --diff "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}" --secrets
+
+      - name: Slopwatch (baseline compare)
+        run: dotnet tool run slopwatch -- analyze -d . --fail-on warning
+

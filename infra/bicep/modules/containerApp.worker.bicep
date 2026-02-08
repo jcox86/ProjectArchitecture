@@ -20,11 +20,20 @@ param managedEnvironmentId string
 @description('Container image reference. App pipeline will update this to ACR image tags.')
 param image string
 
+@description('Container app secrets (optionally Key Vault-backed). Items should be compatible with ACA `configuration.secrets`.')
+param secrets array = []
+
+@description('Environment variables for the container. Items should be compatible with ACA `template.containers[].env`.')
+param env array = []
+
 @description('Minimum replicas.')
 param minReplicas int = 1
 
 @description('Maximum replicas.')
 param maxReplicas int = 5
+
+@description('Optional scale rules (KEDA). Items should be compatible with ACA `template.scale.rules`.')
+param scaleRules array = []
 
 @description('ACR login server for managed-identity pulls (optional).')
 param acrLoginServer string = ''
@@ -46,12 +55,14 @@ resource worker 'Microsoft.App/containerApps@2023-05-01' = {
           identity: 'system'
         }
       ]
+      secrets: secrets
     }
     template: {
       containers: [
         {
           name: 'worker'
           image: image
+          env: env
           resources: {
             cpu: json('0.5')
             memory: '1Gi'
@@ -61,6 +72,7 @@ resource worker 'Microsoft.App/containerApps@2023-05-01' = {
       scale: {
         minReplicas: minReplicas
         maxReplicas: maxReplicas
+        rules: scaleRules
       }
     }
   }

@@ -1,0 +1,33 @@
+---
+description: Admin UI conventions (Vue + Vite + TS + Naive UI)
+globs: "src/AdminUi/**/*.{ts,vue}"
+alwaysApply: false
+module: cursor.rules.adminUiVue
+purpose: Standardize Admin/Backoffice UI conventions (Vue+TS, Naive UI, and API interaction patterns).
+exports:
+  - convention: component + page structure
+  - convention: API calling + error handling
+patterns:
+  - vue
+  - naive_ui
+  - typescript
+notes:
+  - Prefer same-origin with admin API routes to avoid CORS complexity.
+---
+
+# Admin UI conventions (Vue)
+
+## Stack (locked-in)
+
+- Vue (Vite + TypeScript) + Naive UI
+
+## Module headers
+
+- `*.vue` files: start with `<!-- ... -->` YAML header (see `docs/ai/module-headers.md`)
+- `*.ts` files: start with `/* ... */` YAML header
+
+## API interaction (planned)
+
+- Prefer a thin API client wrapper with consistent error handling and correlation headers.
+- Never embed secrets in client code; use runtime config and server-side secrets only.
+

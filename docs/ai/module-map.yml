@@ -1,0 +1,103 @@
+# module: docs.ai.moduleMap
+# purpose: Path → module-prefix mapping used to validate `module:` header values by location.
+# exports:
+#   - mapping: modulePrefixes
+#   - list: exclusions
+# patterns:
+#   - module_header_validation
+
+version: 1
+
+# Path → module prefix mapping.
+# Intended for a future repo linter to validate that a file’s module header `module:`
+# matches its location (at least by prefix).
+
+modulePrefixes:
+  - modulePrefix: repo
+    paths:
+      - AGENTS.md
+      - README.md
+      - PLAN.md
+
+  - modulePrefix: ci.workflows
+    paths:
+      - .github/workflows/**
+
+  - modulePrefix: infra.bicep
+    paths:
+      - infra/bicep/**
+
+  - modulePrefix: scripts.infra
+    paths:
+      - scripts/infra/**
+
+  - modulePrefix: scripts.deploy
+    paths:
+      - scripts/deploy/**
+
+  - modulePrefix: docs.ai
+    paths:
+      - docs/ai/**
+
+  - modulePrefix: docs.requirements
+    paths:
+      - docs/requirements/**
+
+  - modulePrefix: docs.architecture
+    paths:
+      - docs/architecture/**
+
+  - modulePrefix: docs.security
+    paths:
+      - docs/security/**
+
+  - modulePrefix: docs.operations
+    paths:
+      - docs/operations/**
+
+  - modulePrefix: docs.adr
+    paths:
+      - docs/adr/**
+
+  - modulePrefix: cursor.rules
+    paths:
+      - .cursor/rules/**
+
+  - modulePrefix: cursor.skills
+    paths:
+      - .cursor/skills/**
+
+  # Planned (template growth)
+  - modulePrefix: db.catalog
+    paths:
+      - db/catalog/**
+
+  - modulePrefix: db.tenant
+    paths:
+      - db/tenant/**
+
+  - modulePrefix: src.api.smokeTests
+    paths:
+      - src/Api.SmokeTests/**
+
+  - modulePrefix: src.adminUi
+    paths:
+      - src/AdminUi/**
+
+  - modulePrefix: src
+    paths:
+      - src/**
+
+  - modulePrefix: tools
+    paths:
+      - tools/**
+
+exclusions:
+  - "**/bin/**"
+  - "**/obj/**"
+  - "infra/bicep/**/*.json"
+  - "**/node_modules/**"
+  - "**/dist/**"
+  - ".env"
+  - ".env.*"
+

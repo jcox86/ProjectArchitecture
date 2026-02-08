@@ -1,0 +1,45 @@
+{
+   "$schema": "https://alirezanet.github.io/Husky.Net/schema.json",
+   "tasks": [
+      {
+         "name": "repo-linter",
+         "group": "pre-commit",
+         "command": "dotnet",
+         "args": [
+            "run",
+            "--project",
+            "tools/RepoLinter/RepoLinter.csproj",
+            "--",
+            "--staged",
+            "--secrets"
+         ]
+      },
+      {
+         "name": "dotnet-format",
+         "group": "pre-commit",
+         "command": "dotnet",
+         "args": [
+            "format",
+            "tools/RepoLinter/RepoLinter.csproj",
+            "--verify-no-changes"
+         ]
+      },
+      {
+         "name": "slopwatch",
+         "group": "pre-commit",
+         "command": "dotnet",
+         "args": [
+            "tool",
+            "run",
+            "slopwatch",
+            "--",
+            "analyze",
+            "-d",
+            ".",
+            "--hook",
+            "--fail-on",
+            "warning"
+         ]
+      }
+   ]
+}

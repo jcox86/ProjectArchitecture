@@ -1,0 +1,45 @@
+---
+description: Core architecture guardrails and defaults for this template
+alwaysApply: true
+module: cursor.rules.coreArchitecture
+purpose: Provide always-on guidance for architecture boundaries, tenancy, persistence, and platform defaults.
+exports:
+  - rule: clean architecture boundaries
+  - rule: tenancy + persistence assumptions
+patterns:
+  - clean_architecture
+  - ddd
+  - hybrid_multitenancy
+notes:
+  - Keep host projects thin; put logic in Application/Domain layers.
+---
+
+# Core architecture (always apply)
+
+## Platform defaults (locked-in)
+
+- **Runtime**: .NET 10, Azure Container Apps, Azure Front Door (Standard/Premium parameterized)
+- **Persistence**: PostgreSQL Flexible Server, SQL-first (ADO.NET/Dapper + functions/procs)
+- **Messaging**: Azure Storage Queues + outbox + idempotency keys
+- **Security**: Product users via B2C/External ID; admin staff via Entra ID; ABAC policies (Redis-cached attributes)
+- **Observability**: OpenTelemetry + Azure Monitor exporter; Serilog
+
+## Architecture boundaries
+
+- **Clean Architecture**: dependencies flow inward (Domain → Application → Infrastructure → Hosts)
+- **Hosts are composition roots**: API/Worker/AdminUi should mostly wire DI, endpoints, and host-specific concerns
+- **Domain stays pure**: no Azure SDK / HTTP / DB driver dependencies in Domain
+
+## Tenancy (hybrid multi-tenant)
+
+- Resolve tenant primarily by **subdomain**
+- Control plane uses a **catalog DB** to resolve tenant → routing/tier
+- Data plane:
+  - **Shared tier**: tenant data in shared DB protected by PostgreSQL **RLS**
+  - **Isolated tier**: dedicated DB per tenant using the **same schema**, keeping RLS enabled
+
+## Repo contract (LLM-forward)
+
+- New/edited comment-capable files must start with the **module header** standard in `docs/ai/module-headers.md`.
+- Module names should match path prefixes in `docs/ai/module-map.yml`.
+

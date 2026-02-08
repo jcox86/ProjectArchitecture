@@ -23,7 +23,10 @@ param(
   [string] $Location = 'eastus',
 
   [Parameter()]
-  [string] $PostgresAdminPassword
+  [string] $PostgresAdminPassword,
+
+  [Parameter()]
+  [string] $PostgresAppPassword
 )
 
 $ErrorActionPreference = 'Stop'
@@ -53,13 +56,25 @@ function Deploy-Infrastructure {
     throw "Missing Postgres admin password. Provide -PostgresAdminPassword or set POSTGRES_ADMIN_PASSWORD."
   }
 
-  az deployment group create `
-    --name $deploymentName `
-    --resource-group $ResourceGroupName `
-    --template-file $templateFile `
-    --parameters $paramFile `
-    --parameters postgresAdminPassword="$PostgresAdminPassword" `
-    --mode Incremental | Out-Null
+  if ([string]::IsNullOrWhiteSpace($PostgresAppPassword)) {
+    $PostgresAppPassword = $env:POSTGRES_APP_PASSWORD
+  }
+
+  $azArgs = @(
+    'deployment', 'group', 'create',
+    '--name', $deploymentName,
+    '--resource-group', $ResourceGroupName,
+    '--template-file', $templateFile,
+    '--parameters', $paramFile,
+    '--parameters', "postgresAdminPassword=$PostgresAdminPassword",
+    '--mode', 'Incremental'
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($PostgresAppPassword)) {
+    $azArgs += @('--parameters', "postgresAppPassword=$PostgresAppPassword")
+  }
+
+  az @azArgs | Out-Null
 
   Write-Host "Infra deployment complete: $deploymentName"
 }

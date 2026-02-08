@@ -1,0 +1,43 @@
+---
+description: Require try/catch with logging and safe messages for C# methods where appropriate
+globs: src/**/*.cs
+alwaysApply: false
+module: cursor.rules.csharpTryCatchLogging
+purpose: Enforce resilient exception handling with detailed logging and safe caller messages.
+exports:
+  - rule: try/catch + logging guidance
+patterns:
+  - error_handling
+---
+
+# C# Try/Catch + Logging
+
+Wrap method bodies in `try/catch` when the method can throw due to IO, network, database,
+external services, or other non-trivial runtime failures.
+
+In catch blocks:
+- Log **detailed** errors (exception + context).
+- Return/throw **simple** messages to callers (no sensitive internals).
+
+## Example
+
+```csharp
+public async Task<Result> CreateOrderAsync(CreateOrderRequest request)
+{
+    try
+    {
+        var orderId = await _repository.CreateAsync(request, CancellationToken.None);
+        return Result.Success(orderId);
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to create order for customer {CustomerId}", request.CustomerId);
+        return Result.Failure("Unable to create order right now.");
+    }
+}
+```
+
+## Notes
+
+- Do not wrap trivial pure methods.
+- Avoid swallowing exceptions; return/throw a safe message or rethrow after logging when appropriate.

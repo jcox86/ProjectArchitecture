@@ -1,0 +1,44 @@
+---
+description: Minimal API conventions (endpoints, results, idempotency, tenancy)
+globs: "src/Api/**/*.cs"
+alwaysApply: false
+module: cursor.rules.apiMinimal
+purpose: Standardize API endpoint conventions for the template (minimal APIs, auth boundaries, idempotency, and tenant routing).
+exports:
+  - convention: endpoint mapping + result pattern
+  - convention: idempotency key handling
+patterns:
+  - minimal_api
+  - idempotency_key
+  - tenant_resolution
+notes:
+  - Separate admin vs product auth schemes (Entra vs B2C/External ID).
+---
+
+# API conventions (minimal APIs)
+
+## Structure (planned)
+
+- Keep `src/Api` as a **thin host**: routing, DI, middleware, health checks.
+- Put business logic in Application; keep Domain pure.
+
+## Endpoints
+
+- Prefer minimal API endpoint groups with explicit mapping entrypoints (e.g., `*.Map(IEndpointRouteBuilder)`).
+- Use a consistent result/response pattern (don’t throw for control flow).
+
+## Tenancy
+
+- Tenant is resolved by **host/subdomain** early in the pipeline.
+- Tenant context must be validated before accessing tenant data stores.
+
+## Idempotency
+
+- Write endpoints accept `Idempotency-Key` and guarantee safe retries (no duplicate side effects).
+- Persist idempotency records and correlate with outbox where applicable.
+
+## AuthN/AuthZ
+
+- Keep product and admin auth schemes separate (avoid “auth confusion”).
+- Apply ABAC policies consistently; cache attributes in Redis (planned).
+

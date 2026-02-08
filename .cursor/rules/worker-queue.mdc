@@ -1,0 +1,36 @@
+---
+description: Worker conventions (Azure Storage Queues, retries, poison, outbox/idempotency)
+globs: "src/Worker/**/*.cs"
+alwaysApply: false
+module: cursor.rules.workerQueue
+purpose: Standardize background processing patterns (queue handlers, retries, poison handling, and observability).
+exports:
+  - convention: queue processing + poison handling
+  - convention: outbox delivery + idempotency
+patterns:
+  - storage_queues
+  - retries
+  - poison_queue
+  - outbox
+notes:
+  - Prefer bounded concurrency and explicit timeouts to avoid runaway cost.
+---
+
+# Worker conventions (queue-first)
+
+## Queue processing
+
+- Use Azure Storage Queues; scale via KEDA triggers (planned infra supports this).
+- Handlers must be **idempotent** (safe at-least-once delivery).
+- Bound retries; after N attempts, move to a `*-poison` queue and alert.
+
+## Outbox
+
+- Prefer a transactional outbox for external side effects (emails, webhooks, billing).
+- Measure and alert on outbox lag/failures (planned).
+
+## Observability
+
+- Emit structured logs with correlation IDs + tenant context.
+- Use tracing spans around dequeue/processing/dependency calls.
+

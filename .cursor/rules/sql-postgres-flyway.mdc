@@ -1,0 +1,62 @@
+---
+description: PostgreSQL + Flyway conventions (migrations, repeatables, RLS, safety)
+globs: "db/**/*.sql"
+alwaysApply: false
+module: cursor.rules.sqlPostgresFlyway
+purpose: Standardize SQL organization, naming, and safety guardrails for PostgreSQL using Flyway.
+exports:
+  - naming: versioned migrations + repeatables
+  - patterns: RLS invariants for tenant data
+patterns:
+  - flyway
+  - postgres_rls
+  - sql_first
+notes:
+  - Prefer one-object-per-script where practical.
+---
+
+# PostgreSQL + Flyway (SQL-first)
+
+## Layout (planned)
+
+- `db/catalog/`
+  - `migrations/` (versioned: `V...__...sql`)
+  - `repeatable/` (repeatable: `R__...sql`)
+  - `seed/` (idempotent reference data)
+- `db/tenant/` (same structure)
+
+## Naming (default)
+
+- **Versioned**: `V0001_0001__<module>__<objectType>__<name>__<intent>.sql`
+  - Example: `V0001_0010__inventory__table__shop__create.sql`
+- **Repeatable**: `R__<module>__<objectType>__<name>.sql`
+  - Example: `R__inventory__function__get_shop.sql` using `create or replace ...`
+
+## RLS invariants (tenant-scoped tables)
+
+- Tenant tables include `tenant_id`
+- `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`
+- `ALTER TABLE ... FORCE ROW LEVEL SECURITY`
+- Policies bind to tenant context (e.g., `current_setting('app.tenant_id', true)`)
+- RLS is required for tenant-scoped data to ensure SaaS isolation.
+
+## Audit/history columns (most tables)
+
+- `created_by uuid` (nullable)
+- `updated_by uuid` (nullable)
+- `is_active boolean not null default true`
+
+## Safety guardrails
+
+- Avoid destructive DDL by default (DROP/rewrites/breaking changes). Use **expand/contract**.
+- CI should run `flyway validate` and fail on drift/checksum mismatch (planned).
+
+## Limits and constraints (SaaS guardrails)
+
+- Enforce subscription/tier constraints via DB-level checks or triggers.
+- Prefer `inventory.limits` for tenant/system limits and audit changes.
+
+## Module headers
+
+All SQL files start with a module header in `--` YAML lines (`docs/ai/module-headers.md`).
+

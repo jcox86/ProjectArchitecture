@@ -30,6 +30,7 @@ jobs:
         shell: pwsh
         env:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          POSTGRES_APP_PASSWORD: ${{ secrets.POSTGRES_APP_PASSWORD }}
         run: |
           ./scripts/infra/deploy.ps1 -Environment dev -ResourceGroupName "${{ secrets.AZURE_RG_DEV }}" -Location "${{ secrets.AZURE_LOCATION }}"
 
@@ -51,6 +52,7 @@ jobs:
         shell: pwsh
         env:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          POSTGRES_APP_PASSWORD: ${{ secrets.POSTGRES_APP_PASSWORD }}
         run: |
           ./scripts/infra/deploy.ps1 -Environment staging -ResourceGroupName "${{ secrets.AZURE_RG_STAGING }}" -Location "${{ secrets.AZURE_LOCATION }}"
 
@@ -72,6 +74,7 @@ jobs:
         shell: pwsh
         env:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          POSTGRES_APP_PASSWORD: ${{ secrets.POSTGRES_APP_PASSWORD }}
         run: |
           ./scripts/infra/whatif.ps1 -Environment prod -ResourceGroupName "${{ secrets.AZURE_RG_PROD }}" -FailOnDeleteOrReplace
 
@@ -79,6 +82,7 @@ jobs:
         shell: pwsh
         env:
           POSTGRES_ADMIN_PASSWORD: ${{ secrets.POSTGRES_ADMIN_PASSWORD }}
+          POSTGRES_APP_PASSWORD: ${{ secrets.POSTGRES_APP_PASSWORD }}
         run: |
           ./scripts/infra/deploy.ps1 -Environment prod -ResourceGroupName "${{ secrets.AZURE_RG_PROD }}" -Location "${{ secrets.AZURE_LOCATION }}"
 

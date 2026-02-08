@@ -1,0 +1,28 @@
+---
+description: Keep docs, module maps, and schema definitions in sync
+alwaysApply: true
+module: cursor.rules.docsModuleMapSync
+purpose: Ensure documentation, module maps, and schemas reflect recent changes.
+exports:
+  - rule: update docs and module maps on structural changes
+patterns:
+  - docs_sync
+---
+
+# Docs + Module Map Sync
+
+- When adding/moving modules or projects, update `docs/ai/repo-map.md` and `docs/ai/module-map.yml`.
+- When adding DB objects or schemas, update `db/**/*` scripts and any relevant docs under `docs/architecture/` or `docs/adr/`.
+- Keep ADR references and repo-map sections current; remove outdated “planned” entries once implemented.
+
+## Examples
+
+```text
+// ✅ GOOD: new project added
+Update docs/ai/repo-map.md and docs/ai/module-map.yml to include src/Api.SmokeTests/
+```
+
+```text
+// ✅ GOOD: new schema objects added
+Update db/** scripts and add/refresh docs/architecture notes about the schema
+```
