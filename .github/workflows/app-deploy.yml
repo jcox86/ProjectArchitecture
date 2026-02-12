@@ -41,10 +41,23 @@ jobs:
         run: |
           echo "loginServer=$(az acr show -n '${{ secrets.ACR_NAME }}' --query loginServer -o tsv)" >> $GITHUB_OUTPUT
 
-      - name: Build & push images (TODO)
+      - name: Build & push API image
         run: |
-          echo "TODO: build API/Worker/AdminUi images and push to ACR"
-          echo "ACR: ${{ steps.acr.outputs.loginServer }}"
+          az acr build --registry ${{ secrets.ACR_NAME }} \
+            --image ${{ secrets.APP_NAME }}-api:latest \
+            -f src/Api/Dockerfile .
+
+      - name: Build & push Worker image
+        run: |
+          az acr build --registry ${{ secrets.ACR_NAME }} \
+            --image ${{ secrets.APP_NAME }}-worker:latest \
+            -f src/Worker/Dockerfile .
+
+      - name: Build & push Admin UI image
+        run: |
+          az acr build --registry ${{ secrets.ACR_NAME }} \
+            --image ${{ secrets.APP_NAME }}-adminui:latest \
+            -f src/AdminUi/Dockerfile src/AdminUi
 
       - name: Deploy API (blue/green)
         shell: pwsh
@@ -65,6 +78,11 @@ jobs:
           ./scripts/deploy/aca-bluegreen.ps1 -ResourceGroupName $env:RG_NAME -ContainerAppName "$env:APP_NAME-adminui-dev" -Image $image
 
       - name: Deploy Worker (simple update)
+        shell: pwsh
+        env:
+          RG_NAME: ${{ secrets.AZURE_RG_DEV }}
+          APP_NAME: ${{ secrets.APP_NAME }}
         run: |
-          echo "TODO: deploy worker image (no ingress traffic shifting needed)"
+          $image = "${{ steps.acr.outputs.loginServer }}/${{ secrets.APP_NAME }}-worker:latest"
+          ./scripts/deploy/aca-worker-update.ps1 -ResourceGroupName $env:RG_NAME -ContainerAppName "$env:APP_NAME-worker-dev" -Image $image
 

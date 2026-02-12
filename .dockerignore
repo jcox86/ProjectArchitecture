@@ -1,0 +1,23 @@
+# module: repo.dockerignore
+# purpose: Reduce build context for API/Worker Dockerfiles (context = repo root).
+# exports: []
+# patterns: []
+# notes: Used when building with -f src/Api/Dockerfile . or -f src/Worker/Dockerfile .
+
+.git
+.github
+**/bin
+**/obj
+**/out
+**/node_modules
+**/.env
+**/.env.*
+**/dist
+artifacts
+docs
+infra
+tools
+*.md
+*.slnx
+src/AdminUi
+src/Api.SmokeTests

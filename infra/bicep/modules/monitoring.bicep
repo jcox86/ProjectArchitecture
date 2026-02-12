@@ -57,12 +57,10 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 // Shared key for wiring Container Apps Environment logs.
-var laKeys = listKeys(logAnalytics.id, logAnalytics.apiVersion)
-
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output logAnalyticsCustomerId string = logAnalytics.properties.customerId
 @secure()
-output logAnalyticsPrimarySharedKey string = laKeys.primarySharedKey
+output logAnalyticsPrimarySharedKey string = logAnalytics.listKeys().primarySharedKey
 
 output appInsightsId string = appInsights.id
 output appInsightsConnectionString string = appInsights.properties.ConnectionString

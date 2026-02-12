@@ -28,7 +28,7 @@ A cloud-native SaaS template emphasizing:
 - `db/`: Flyway migrations for catalog + tenant DBs
 - `infra/bicep/`: Bicep IaC project (entrypoints + modules + params)
 - `scripts/infra/`: repeatable infra commands (deploy/what-if/destroy)
-- `scripts/deploy/`: app deployment helpers (ACA blue/green)
+- `scripts/deploy/`: app deployment helpers (ACA blue/green, Worker update); container images built via `src/Api/Dockerfile`, `src/Worker/Dockerfile`, `src/AdminUi/Dockerfile`
 - `src/`: .NET solution (Api/Worker/AdminUi + Clean Architecture layers)
   - `src/AdminUi/`: Vue (Vite + TS + Naive UI) admin portal
 - `src/Api.SmokeTests/`: minimal smoke tests for the API host
@@ -61,7 +61,9 @@ See:
 
 ## Common routing (where to look first)
 
+- **First deploy / CI/CD / Admin UI sign-in**: `docs/operations/deployment-runbook.md`
 - **Change infra**: `infra/bicep/README.md` → `infra/bicep/main.rg.bicep` → `infra/bicep/modules/*`
+- **Verify all builds**: `scripts/verify/verify-builds.ps1` ( .NET, Admin UI, Bicep, RepoLinter)
 - **Validate/what-if**: `.github/workflows/infra-validate.yml` + `scripts/infra/whatif.ps1`
 - **Deploy infra**: `scripts/infra/deploy.ps1` + `.github/workflows/infra-deploy.yml`
 - **Blue/green app deploy**: `scripts/deploy/aca-bluegreen.ps1`

@@ -12,7 +12,7 @@ notes:
 using '../main.rg.bicep'
 
 param appName = 'saastpl'
-param environment = 'prod'
+param environmentName = 'prod'
 param location = 'eastus'
 
 param dnsRoot = 'example.com'

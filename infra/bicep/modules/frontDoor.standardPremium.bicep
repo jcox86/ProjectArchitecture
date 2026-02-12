@@ -346,8 +346,8 @@ output profileId string = profile.id
 output endpointId string = endpoint.id
 output frontDoorEndpointHostName string = endpoint.properties.hostName
 
-output adminCustomDomainValidationDnsTxtRecordName string = enableCustomDomains ? '_dnsauth.${adminCustomDomain.properties.hostName}' : ''
-output adminCustomDomainValidationDnsTxtRecordValue string = enableCustomDomains ? adminCustomDomain.properties.validationProperties.validationToken : ''
-output tenantWildcardDomainValidationDnsTxtRecordName string = enableCustomDomains ? '_dnsauth.${tenantWildcardCustomDomain.properties.hostName}' : ''
-output tenantWildcardDomainValidationDnsTxtRecordValue string = enableCustomDomains ? tenantWildcardCustomDomain.properties.validationProperties.validationToken : ''
+output adminCustomDomainValidationDnsTxtRecordName string = enableCustomDomains ? '_dnsauth.${adminCustomDomain!.properties.hostName}' : ''
+output adminCustomDomainValidationDnsTxtRecordValue string = enableCustomDomains ? adminCustomDomain!.properties.validationProperties.validationToken : ''
+output tenantWildcardDomainValidationDnsTxtRecordName string = enableCustomDomains ? '_dnsauth.${tenantWildcardCustomDomain!.properties.hostName}' : ''
+output tenantWildcardDomainValidationDnsTxtRecordValue string = enableCustomDomains ? tenantWildcardCustomDomain!.properties.validationProperties.validationToken : ''
 

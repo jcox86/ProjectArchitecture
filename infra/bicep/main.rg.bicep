@@ -22,7 +22,7 @@ param appName string
   'staging'
   'prod'
 ])
-param environment string
+param environmentName string
 
 @description('Azure region (location) for regional resources.')
 param location string
@@ -35,14 +35,14 @@ param dnsRoot string
   'Standard_AzureFrontDoor'
   'Premium_AzureFrontDoor'
 ])
-param frontDoorSkuName string = (environment == 'prod' ? 'Premium_AzureFrontDoor' : 'Standard_AzureFrontDoor')
+param frontDoorSkuName string = (environmentName == 'prod' ? 'Premium_AzureFrontDoor' : 'Standard_AzureFrontDoor')
 
 @description('PostgreSQL admin login name (non-secret). Password should be provided via Key Vault/secret references, not as a param here.')
 param postgresAdminLogin string = 'pgadmin'
 
 @secure()
-@description('PostgreSQL admin password (secret). Provide via CI/CD secrets; do not commit in param files.')
-param postgresAdminPassword string
+@description('PostgreSQL admin password (secret). Provide via CI/CD or -PostgresAdminPassword; do not commit in param files. Default empty; script/CI must override.')
+param postgresAdminPassword string = ''
 
 @description('PostgreSQL runtime login used by application services (API/Worker). This user is created by DB migrations.')
 param postgresAppLogin string = 'appuser'
@@ -52,19 +52,19 @@ param postgresAppLogin string = 'appuser'
 param postgresAppPassword string = postgresAdminPassword
 
 @description('PostgreSQL server name (computed if empty).')
-param postgresServerName string = 'psql-${appName}-${environment}'
+param postgresServerName string = 'psql-${appName}-${environmentName}'
 
 @description('Redis cache name (computed if empty).')
-param redisName string = 'redis-${appName}-${environment}'
+param redisName string = 'redis-${appName}-${environmentName}'
 
 @description('API autoscaling: concurrent HTTP requests per replica (HTTP scaler).')
-param apiHttpConcurrentRequests int = (environment == 'prod' ? 50 : 25)
+param apiHttpConcurrentRequests int = (environmentName == 'prod' ? 50 : 25)
 
 @description('Admin UI autoscaling: concurrent HTTP requests per replica (HTTP scaler).')
-param adminUiHttpConcurrentRequests int = (environment == 'prod' ? 100 : 50)
+param adminUiHttpConcurrentRequests int = (environmentName == 'prod' ? 100 : 50)
 
 @description('Worker autoscaling: scale out when a queue exceeds this length (per replica).')
-param workerQueueLength int = (environment == 'prod' ? 50 : 10)
+param workerQueueLength int = (environmentName == 'prod' ? 50 : 10)
 
 @description('Enable Worker queue-based autoscaling (KEDA Azure Storage Queue).')
 param enableWorkerQueueScaling bool = true
@@ -101,7 +101,7 @@ param adminUiImage string = 'mcr.microsoft.com/azuredocs/containerapps-helloworl
 
 var tags = {
   app: appName
-  env: environment
+  env: environmentName
 }
 
 // Foundation
@@ -111,7 +111,7 @@ module kv 'modules/keyVault.bicep' = {
     keyVaultName: keyVaultName
     location: location
     tags: tags
-    enablePurgeProtection: (environment == 'prod')
+    enablePurgeProtection: (environmentName == 'prod')
   }
 }
 
@@ -119,7 +119,7 @@ module monitoring 'modules/monitoring.bicep' = {
   name: 'monitoring'
   params: {
     appName: appName
-    environment: environment
+    environment: environmentName
     location: location
     tags: tags
   }
@@ -129,12 +129,12 @@ module acaEnv 'modules/containerAppsEnvironment.bicep' = {
   name: 'containerAppsEnvironment'
   params: {
     appName: appName
-    environment: environment
+    environment: environmentName
     location: location
     tags: tags
     logAnalyticsCustomerId: monitoring.outputs.logAnalyticsCustomerId
     logAnalyticsSharedKey: monitoring.outputs.logAnalyticsPrimarySharedKey
-    zoneRedundant: (environment == 'prod')
+    zoneRedundant: (environmentName == 'prod')
   }
 }
 
@@ -144,7 +144,7 @@ module acr 'modules/acr.bicep' = {
     acrName: acrName
     location: location
     tags: tags
-    acrSku: (environment == 'prod' ? 'Premium' : 'Standard')
+    acrSku: (environmentName == 'prod' ? 'Premium' : 'Standard')
   }
 }
 
@@ -154,7 +154,7 @@ module storage 'modules/storage.bicep' = {
     storageAccountName: storageAccountName
     location: location
     tags: tags
-    skuName: (environment == 'prod' ? 'Standard_ZRS' : 'Standard_LRS')
+    skuName: (environmentName == 'prod' ? 'Standard_ZRS' : 'Standard_LRS')
   }
 }
 
@@ -164,8 +164,8 @@ module redis 'modules/redis.bicep' = {
     redisName: redisName
     location: location
     tags: tags
-    skuName: (environment == 'prod' ? 'Premium' : 'Standard')
-    skuCapacity: (environment == 'prod' ? 2 : 1)
+    skuName: (environmentName == 'prod' ? 'Premium' : 'Standard')
+    skuCapacity: (environmentName == 'prod' ? 2 : 1)
   }
 }
 
@@ -175,7 +175,7 @@ module appConfig 'modules/appConfig.bicep' = {
     appConfigName: appConfigName
     location: location
     tags: tags
-    skuName: (environment == 'prod' ? 'Standard' : 'Standard')
+    skuName: (environmentName == 'prod' ? 'Standard' : 'Standard')
   }
 }
 
@@ -187,13 +187,12 @@ module postgres 'modules/postgresFlexibleServer.bicep' = {
     tags: tags
     administratorLogin: postgresAdminLogin
     administratorLoginPassword: postgresAdminPassword
-    haMode: (environment == 'prod' ? 'ZoneRedundant' : 'Disabled')
+    haMode: (environmentName == 'prod' ? 'ZoneRedundant' : 'Disabled')
     allowAzureServices: true
   }
 }
 
 // Runtime wiring: Key Vault secret URLs (latest version).
-var kvSecretUrlPostgresAdminPassword = '${kv.outputs.keyVaultUri}secrets/postgres-admin-password'
 var kvSecretUrlPostgresAppPassword = '${kv.outputs.keyVaultUri}secrets/postgres-app-password'
 var kvSecretUrlRedisPrimaryKey = '${kv.outputs.keyVaultUri}secrets/redis-primary-key'
 var kvSecretUrlStorageConnectionString = '${kv.outputs.keyVaultUri}secrets/storage-connection-string'
@@ -349,7 +348,7 @@ module apiApp 'modules/containerApp.api.bicep' = {
     secrets: commonRuntimeSecrets
     env: apiRuntimeEnv
     targetPort: 8080
-    minReplicas: (environment == 'prod' ? 2 : 1)
+    minReplicas: (environmentName == 'prod' ? 2 : 1)
     maxReplicas: 10
     httpConcurrentRequests: apiHttpConcurrentRequests
     acrLoginServer: acr.outputs.acrLoginServer
@@ -430,10 +429,9 @@ resource redisRes 'Microsoft.Cache/Redis@2023-08-01' existing = {
 }
 
 // Store runtime secrets in Key Vault (used by ACA keyVaultUrl secrets).
-var storageKeys = listKeys(stRes.id, stRes.apiVersion)
-var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${storageKeys.keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
+var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${stRes.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
 
-var redisKeys = listKeys(redisRes.id, redisRes.apiVersion)
+var redisKeys = redisRes.listKeys()
 
 resource secretPostgresAdminPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kvRes
@@ -489,7 +487,6 @@ resource secretAppInsightsConnectionString 'Microsoft.KeyVault/vaults/secrets@20
   }
   dependsOn: [
     kv
-    monitoring
   ]
 }
 
@@ -499,9 +496,9 @@ var roleStorageBlobDataContributor = subscriptionResourceId('Microsoft.Authoriza
 var roleStorageQueueDataContributor = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '974c5e8b-45b9-4653-ba55-5f855dd0fb88')
 var roleAppConfigDataReader = subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '516239f1-63e1-4d78-a4de-a74fb236a071')
 
-var apiContainerAppName = '${appName}-api-${environment}'
-var workerContainerAppName = '${appName}-worker-${environment}'
-var adminUiContainerAppName = '${appName}-adminui-${environment}'
+var apiContainerAppName = '${appName}-api-${environmentName}'
+var workerContainerAppName = '${appName}-worker-${environmentName}'
+var adminUiContainerAppName = '${appName}-adminui-${environmentName}'
 
 resource acrPullApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(acrRes.id, apiContainerAppName, 'acrpull')
@@ -614,13 +611,13 @@ resource appConfigReaderWorker 'Microsoft.Authorization/roleAssignments@2022-04-
 }
 
 // Edge (Front Door)
-var frontDoorEndpointName = toLower('afd-${appName}-${environment}-${uniqueString(resourceGroup().id)}')
+var frontDoorEndpointName = toLower('afd-${appName}-${environmentName}-${uniqueString(resourceGroup().id)}')
 
 module afd 'modules/frontDoor.standardPremium.bicep' = {
   name: 'frontDoor'
   params: {
     appName: appName
-    environment: environment
+    environment: environmentName
     skuName: frontDoorSkuName
     endpointName: frontDoorEndpointName
     originHostNameApi: apiApp.outputs.ingressFqdn

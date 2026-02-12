@@ -1,3 +1,12 @@
+<!--
+module: repo.readme
+purpose: Entry point for working in this repo.
+exports:
+  - readme: key docs
+patterns:
+  - readme
+-->
+
 # ProjectArchitecture — Cloud-native SaaS Template (Azure/.NET)
 
 This repository is a cloud-native SaaS project template emphasizing Clean Architecture, DDD, performance, observability, security, and **LLM-forward** repo conventions.

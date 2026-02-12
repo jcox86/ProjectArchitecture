@@ -12,8 +12,10 @@ patterns:
 
 This folder contains operational guidance: how to deploy, observe, troubleshoot, and recover.
 
-## Topics to cover
+## Topics
 
+- **Deployment runbook**: [deployment-runbook.md](deployment-runbook.md) — step-by-step Azure + GitHub setup, first deploy, CI/CD, and Admin UI sign-in.
+- **Build verification**: run `scripts/verify/verify-builds.ps1` to execute all four builds (.NET, Admin UI, Bicep, RepoLinter) and report pass/fail.
 - **Environment model**: dev/staging/prod isolation, access controls, locks.
 - **Deployments**: Container Apps revisions (blue/green), DB migrations (expand/contract).
 - **Observability**: logs/traces/metrics, dashboards, alerting, SLOs. See `docs/operations/observability.md`.

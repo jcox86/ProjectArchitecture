@@ -11,7 +11,7 @@ notes:
 using '../main.rg.bicep'
 
 param appName = 'saastpl'
-param environment = 'dev'
+param environmentName = 'dev'
 param location = 'eastus'
 
 // DNS root for Front Door custom domains (admin.<root>, *.<root>).

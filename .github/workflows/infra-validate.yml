@@ -25,10 +25,15 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Bicep build + lint
+      - name: Install Bicep CLI
         run: |
-          az bicep install
-          az bicep build --file infra/bicep/main.rg.bicep
+          curl -sLo bicep https://github.com/Azure/bicep/releases/latest/download/bicep-linux-x64
+          chmod +x bicep
+          sudo mv bicep /usr/local/bin/
+          bicep --version
+
+      - name: Bicep build + lint
+        run: bicep build infra/bicep/main.rg.bicep
 
       - name: Validate deployment (dev)
         run: |

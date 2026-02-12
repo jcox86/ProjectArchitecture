@@ -40,11 +40,11 @@ resource rg 'Microsoft.Resources/resourceGroups@2024-11-01' = {
   }
 }
 
-resource lockRg 'Microsoft.Authorization/locks@2020-05-01' = if (applyDeleteLock) {
-  name: 'lock-${resourceGroupName}-cannotdelete'
+module lockRg 'modules/resourceGroup.lock.bicep' = if (applyDeleteLock) {
+  name: 'lockRg'
   scope: rg
-  properties: {
-    level: 'CanNotDelete'
+  params: {
+    lockName: 'lock-${resourceGroupName}-cannotdelete'
     notes: 'Protect environment RG from accidental deletion. Disable only with explicit approval.'
   }
 }

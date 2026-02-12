@@ -11,7 +11,7 @@ notes:
 using '../main.rg.bicep'
 
 param appName = 'saastpl'
-param environment = 'staging'
+param environmentName = 'staging'
 param location = 'eastus'
 
 param dnsRoot = 'example.com'

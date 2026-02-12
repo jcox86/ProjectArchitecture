@@ -170,6 +170,15 @@ internal static class RepoLinterApp
             }
         }
 
+        try
+        {
+            errors.AddRange(InfraValidator.Validate(options, repoRoot, candidatePaths));
+        }
+        catch (Exception ex)
+        {
+            errors.Add($"(infra): {ex.Message}");
+        }
+
         if (errors.Count == 0)
         {
             return 0;
@@ -236,6 +245,7 @@ Options:
   --diff <base> <head>     Lint files changed between base and head (git diff base...head).
   --all                    Lint all lintable files in the repo.
   --secrets                Scan diffs for likely secrets (added lines only).
+  --infra                  Force infra validation (bicep build + build-params).
   --repo-root <path>       Repo root override (default: git rev-parse --show-toplevel).
   --module-map <path>      Module map relative path (default: docs/ai/module-map.yml).
   -h, --help               Show help.
@@ -263,6 +273,7 @@ internal sealed record Options(
   string? ModuleMapPath,
   string? DiffBase,
   string? DiffHead,
+  bool InfraCheck,
   bool SecretsScan,
   List<string> Paths,
   bool ShowHelp,
@@ -276,6 +287,7 @@ internal sealed record Options(
         var moduleMapPath = (string?)null;
         var diffBase = (string?)null;
         var diffHead = (string?)null;
+        var infraCheck = false;
         var secretsScan = false;
         var paths = new List<string>();
         var showHelp = false;
@@ -310,6 +322,13 @@ internal sealed record Options(
             if (a == "--secrets")
             {
                 secretsScan = true;
+                i++;
+                continue;
+            }
+
+            if (a == "--infra")
+            {
+                infraCheck = true;
                 i++;
                 continue;
             }
@@ -383,7 +402,7 @@ internal sealed record Options(
             }
         }
 
-        return new Options(mode, repoRoot, moduleMapPath, diffBase, diffHead, secretsScan, paths, showHelp, errors);
+        return new Options(mode, repoRoot, moduleMapPath, diffBase, diffHead, infraCheck, secretsScan, paths, showHelp, errors);
     }
 
     private static TargetMode EnsureMode(TargetMode current, TargetMode requested, List<string> errors, string option)
@@ -578,6 +597,142 @@ internal static class Git
     private sealed record ProcessResult(int ExitCode, string StdOut, string StdErr);
 }
 
+internal static class InfraValidator
+{
+    private const string InfraRootRelativePath = "infra/bicep";
+
+    public static IReadOnlyCollection<string> Validate(
+        Options options,
+        string repoRoot,
+        IReadOnlyCollection<string> candidatePaths)
+    {
+        if (!ShouldRun(options, repoRoot, candidatePaths))
+        {
+            return Array.Empty<string>();
+        }
+
+        var infraRoot = Path.Combine(repoRoot, "infra", "bicep");
+        if (!Directory.Exists(infraRoot))
+        {
+            return [$"infra: expected folder '{InfraRootRelativePath}' not found."];
+        }
+
+        var errors = new List<string>();
+
+        var versionResult = TryRun("bicep", "--version", infraRoot);
+        if (versionResult is null)
+        {
+            Console.Error.WriteLine("WARNING: infra: 'bicep' CLI not found; skipping bicep build/build-params. Install Bicep CLI to validate infra.");
+            return Array.Empty<string>();
+        }
+
+        if (versionResult.ExitCode != 0)
+        {
+            errors.Add($"infra: bicep --version failed: {versionResult.StdErr.Trim()}");
+            return errors;
+        }
+
+        var bicepFiles = Directory.EnumerateFiles(infraRoot, "*.bicep", SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        var paramFiles = Directory.EnumerateFiles(infraRoot, "*.bicepparam", SearchOption.AllDirectories)
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        foreach (var file in bicepFiles)
+        {
+            var result = Run("bicep", $"build \"{file}\"", infraRoot);
+            if (result.ExitCode != 0)
+            {
+                errors.Add($"infra: bicep build failed for '{Path.GetRelativePath(repoRoot, file)}': {Trim(result.StdErr)}");
+            }
+        }
+
+        foreach (var file in paramFiles)
+        {
+            var result = Run("bicep", $"build-params \"{file}\"", infraRoot);
+            if (result.ExitCode != 0)
+            {
+                errors.Add($"infra: bicep build-params failed for '{Path.GetRelativePath(repoRoot, file)}': {Trim(result.StdErr)}");
+            }
+        }
+
+        return errors;
+    }
+
+    private static bool ShouldRun(Options options, string repoRoot, IReadOnlyCollection<string> candidatePaths)
+    {
+        if (options.InfraCheck || options.Mode == TargetMode.All)
+        {
+            return true;
+        }
+
+        foreach (var path in candidatePaths)
+        {
+            var relative = PathUtil.NormalizeRelativePath(path, repoRoot);
+            if (relative is null)
+            {
+                continue;
+            }
+
+            if (relative.StartsWith($"{InfraRootRelativePath}/", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static string Trim(string value)
+        => string.IsNullOrWhiteSpace(value) ? "Unknown error." : value.Trim();
+
+    private static ProcessResult? TryRun(string fileName, string arguments, string? workingDirectory)
+    {
+        try
+        {
+            return Run(fileName, arguments, workingDirectory);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static ProcessResult Run(string fileName, string arguments, string? workingDirectory)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = fileName,
+            Arguments = arguments,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true,
+        };
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            psi.WorkingDirectory = workingDirectory;
+        }
+
+        using var p = Process.Start(psi);
+        if (p is null)
+        {
+            throw new InvalidOperationException($"Failed to start process '{fileName}'.");
+        }
+
+        var stdout = p.StandardOutput.ReadToEnd();
+        var stderr = p.StandardError.ReadToEnd();
+
+        p.WaitForExit();
+
+        return new ProcessResult(p.ExitCode, stdout, stderr);
+    }
+
+    private sealed record ProcessResult(int ExitCode, string StdOut, string StdErr);
+}
+
 internal static class SecretsScanner
 {
     // NOTE: This scanner is intentionally conservative and never prints the secret value.
@@ -641,6 +796,30 @@ internal static class SecretsScanner
     "redacted",
   };
 
+    /// <summary>
+    /// Paths excluded from secrets scanning (e.g. generated/docs with example code like authToken).
+    /// </summary>
+    private static readonly string[] SecretsScanExcludedPathPrefixes = ["artifacts/"];
+
+    public static bool IsExcludedFromSecretsScan(string? filePath)
+    {
+        if (string.IsNullOrWhiteSpace(filePath))
+        {
+            return true;
+        }
+
+        var normalized = filePath.Replace('\\', '/').TrimStart('.', '/');
+        foreach (var prefix in SecretsScanExcludedPathPrefixes)
+        {
+            if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static IReadOnlyCollection<string> Scan(Options options, string repoRoot)
     {
         if (options.Mode is not (TargetMode.Staged or TargetMode.Diff))
@@ -702,7 +881,9 @@ internal static class SecretsScanner
             {
                 var added = line.Length > 1 ? line[1..] : string.Empty;
 
-                if (TryDetectSecret(currentFile, added, out var ruleId, out var message))
+                // Skip secrets scan for artifacts (e.g. generated/docs HTML with example code like authToken).
+                if (!SecretsScanner.IsExcludedFromSecretsScan(currentFile)
+                    && TryDetectSecret(currentFile, added, out var ruleId, out var message))
                 {
                     errors.Add($"{currentFile}:{newLine}: {ruleId} {message}");
                 }

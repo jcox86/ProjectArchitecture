@@ -42,4 +42,5 @@ Use these when reviewing changes or asking the assistant to “act as” a speci
 - `docs/ai/subagents/security-reviewer.md`
 - `docs/ai/subagents/performance-reviewer.md`
 - `docs/ai/subagents/db-reviewer.md`
+- `docs/ai/subagents/test-harness-coverage.md` — single pane of glass for test harness and coverage (unit, integration, e2e, infra, DB) across APIs and UIs.
 

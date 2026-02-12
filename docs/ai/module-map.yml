@@ -35,6 +35,10 @@ modulePrefixes:
     paths:
       - scripts/deploy/**
 
+  - modulePrefix: scripts.verify
+    paths:
+      - scripts/verify/**
+
   - modulePrefix: docs.ai
     paths:
       - docs/ai/**
