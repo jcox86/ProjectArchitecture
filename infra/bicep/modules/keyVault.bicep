@@ -17,9 +17,6 @@ param keyVaultName string
 param location string
 param tags object
 
-@description('Enable purge protection (recommended for prod).')
-param enablePurgeProtection bool = true
-
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
@@ -28,7 +25,7 @@ resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
     tenantId: subscription().tenantId
     enableRbacAuthorization: true
     enableSoftDelete: true
-    enablePurgeProtection: enablePurgeProtection
+    enablePurgeProtection: true
     softDeleteRetentionInDays: 90
     sku: {
       family: 'A'

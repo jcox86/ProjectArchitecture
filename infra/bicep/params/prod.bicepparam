@@ -13,12 +13,12 @@ using '../main.rg.bicep'
 
 param appName = 'saastpl'
 param environmentName = 'prod'
-param location = 'eastus'
+param location = 'westus2'
 
 param dnsRoot = 'example.com'
 
+// appConfigName defaults in main.rg.bicep to a unique value per RG; override here only if needed.
 param storageAccountName = 'stsaastplprod1234'
 param keyVaultName = 'kv-saastpl-prod-1234'
 param acrName = 'acrsaastplprod1234'
-param appConfigName = 'appcs-saastpl-prod-1234'
 

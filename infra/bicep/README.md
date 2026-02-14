@@ -29,6 +29,8 @@ Environment-specific parameters live in `params/` as `.bicepparam` files:
 - `params/staging.bicepparam`
 - `params/prod.bicepparam`
 
+`appConfigName` defaults in `main.rg.bicep` to a globally unique value per resource group (`appcs-${appName}-${environmentName}-${uniqueString(resourceGroup().id)}`). Omit it in param files unless you need a fixed name.
+
 ### Secrets / secure parameters
 
 `main.rg.bicep` requires `postgresAdminPassword` (secure). This must **not** be committed in `.bicepparam` files.
@@ -60,5 +62,5 @@ Infra workflows should:
 
 ## Deployment scripts
 
-See `scripts/infra/` for repeatable deploy/what-if/destroy commands.
+See `scripts/infra/` for repeatable deploy/what-if/destroy commands. **Destroy** purges soft-deleted App Configuration stores so the same names can be reused on redeploy; **deploy** purges conflicting soft-deleted App Config stores before creating resources (both idempotent).
 

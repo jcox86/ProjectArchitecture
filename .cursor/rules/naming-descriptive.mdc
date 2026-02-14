@@ -1,0 +1,42 @@
+---
+description: Use clear, descriptive names for files and variables so any system (humans, tools, AI) can understand them.
+alwaysApply: true
+---
+
+# Descriptive Naming (Files and Variables)
+
+Use names that clearly convey purpose. Avoid abbreviations, single letters (except idiomatic loop indices), and opaque acronyms unless they are universally known in the codebase.
+
+## Files and folders
+
+- Prefer **kebab-case** or **PascalCase** per project convention; keep casing consistent.
+- Name files by **what they are or do**, not by internal implementation detail.
+- Keep names short but unambiguous (e.g. `UserProfileService.cs`, `deployment-runbook.md`).
+
+```text
+# ❌ BAD
+svc.cs, util.ts, xyz-handler.bicep, data1.json
+
+# ✅ GOOD
+UserProfileService.cs, formatCurrency.ts, keyVault.bicep, dev.bicepparam
+```
+
+## Variables and symbols
+
+- Use **camelCase** or **PascalCase** per language/convention.
+- Prefer full words; abbreviate only when the abbreviation is standard (e.g. `id`, `url`, `max`).
+- Names should read like natural language in context (e.g. `tenantId`, `maxRetries`, `isEnabled`).
+
+```text
+# ❌ BAD
+x, tmp, data2, fn(), cfg, tbl
+
+# ✅ GOOD
+tenantId, retryCount, formattedDate, getOrderById(), appConfig, ordersTable
+```
+
+## Cross-system clarity
+
+- Avoid names that depend on local slang or team-only jargon.
+- Prefer names that are self-explanatory in logs, configs, and API contracts.
+- When in doubt, choose the name that a new developer or an automated tool could interpret without extra context.

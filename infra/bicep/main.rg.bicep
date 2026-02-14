@@ -78,8 +78,8 @@ param keyVaultName string
 @description('ACR name (must be globally unique; provide per-environment).')
 param acrName string
 
-@description('App Configuration name (must be globally unique; provide per-environment).')
-param appConfigName string
+@description('App Configuration name (must be globally unique). Default uses uniqueString(resourceGroup().id) for uniqueness per RG.')
+param appConfigName string = 'appcs-${appName}-${environmentName}-${uniqueString(resourceGroup().id)}'
 
 @description('Enable Front Door custom domains (admin.<root> and *.<root>) with customer-managed wildcard certificate from Key Vault.')
 param enableFrontDoorCustomDomains bool = false
@@ -111,7 +111,6 @@ module kv 'modules/keyVault.bicep' = {
     keyVaultName: keyVaultName
     location: location
     tags: tags
-    enablePurgeProtection: (environmentName == 'prod')
   }
 }
 
@@ -187,6 +186,9 @@ module postgres 'modules/postgresFlexibleServer.bicep' = {
     tags: tags
     administratorLogin: postgresAdminLogin
     administratorLoginPassword: postgresAdminPassword
+    skuTier: (environmentName == 'prod' ? 'GeneralPurpose' : 'Burstable')
+    // Prod SKU: Standard_D2s_v6 may be unavailable in some regions (e.g. westus2); override via param if needed.
+    skuName: (environmentName == 'prod' ? 'Standard_D2s_v6' : 'Standard_B1ms')
     haMode: (environmentName == 'prod' ? 'ZoneRedundant' : 'Disabled')
     allowAzureServices: true
   }
@@ -294,11 +296,12 @@ var apiRuntimeEnv = concat(commonRuntimeEnv, [
 
 var workerRuntimeEnv = apiRuntimeEnv
 
+// Container Apps custom scale rule type for Azure Storage Queue is 'azure-queue' (not 'azure-storage-queue').
 var workerScaleRules = [
   {
     name: 'work-queue'
     custom: {
-      type: 'azure-storage-queue'
+      type: 'azure-queue'
       metadata: {
         queueName: 'work'
         queueLength: string(workerQueueLength)
@@ -315,7 +318,7 @@ var workerScaleRules = [
   {
     name: 'outbox-queue'
     custom: {
-      type: 'azure-storage-queue'
+      type: 'azure-queue'
       metadata: {
         queueName: 'outbox'
         queueLength: string(workerQueueLength)
@@ -358,6 +361,7 @@ module apiApp 'modules/containerApp.api.bicep' = {
 module workerApp 'modules/containerApp.worker.bicep' = {
   name: 'workerApp'
   dependsOn: [
+    apiApp
     secretPostgresAppPassword
     secretRedisPrimaryKey
     secretStorageConnectionString
@@ -386,6 +390,7 @@ module workerApp 'modules/containerApp.worker.bicep' = {
 
 module adminUiApp 'modules/containerApp.adminui.bicep' = {
   name: 'adminUiApp'
+  dependsOn: [ apiApp ]
   params: {
     name: adminUiContainerAppName
     location: location
@@ -429,9 +434,9 @@ resource redisRes 'Microsoft.Cache/Redis@2023-08-01' existing = {
 }
 
 // Store runtime secrets in Key Vault (used by ACA keyVaultUrl secrets).
-var storageConnectionString = 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${stRes.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
-
-var redisKeys = redisRes.listKeys()
+// NOTE: listKeys() is inlined in the secret resources below (not in variables) so ARM evaluates
+// them only when those resources deploy—after storage/redis modules exist. Top-level variables
+// are evaluated at deployment start, when existing resources created in the same template may not exist yet.
 
 resource secretPostgresAdminPassword 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
   parent: kvRes
@@ -459,7 +464,7 @@ resource secretRedisPrimaryKey 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = 
   parent: kvRes
   name: 'redis-primary-key'
   properties: {
-    value: redisKeys.primaryKey
+    value: redisRes.listKeys().primaryKey
   }
   dependsOn: [
     kv
@@ -471,7 +476,7 @@ resource secretStorageConnectionString 'Microsoft.KeyVault/vaults/secrets@2023-0
   parent: kvRes
   name: 'storage-connection-string'
   properties: {
-    value: storageConnectionString
+    value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccountName};AccountKey=${stRes.listKeys().keys[0].value};EndpointSuffix=${environment().suffixes.storage}'
   }
   dependsOn: [
     kv
@@ -553,6 +558,7 @@ resource kvSecretsUserWorker 'Microsoft.Authorization/roleAssignments@2022-04-01
 resource blobContributorApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(stRes.id, apiContainerAppName, 'blobcontrib')
   scope: stRes
+  dependsOn: [ storage ]
   properties: {
     principalId: apiApp.outputs.principalId
     roleDefinitionId: roleStorageBlobDataContributor
@@ -563,6 +569,7 @@ resource blobContributorApi 'Microsoft.Authorization/roleAssignments@2022-04-01'
 resource blobContributorWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(stRes.id, workerContainerAppName, 'blobcontrib')
   scope: stRes
+  dependsOn: [ storage ]
   properties: {
     principalId: workerApp.outputs.principalId
     roleDefinitionId: roleStorageBlobDataContributor
@@ -573,6 +580,7 @@ resource blobContributorWorker 'Microsoft.Authorization/roleAssignments@2022-04-
 resource queueContributorApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(stRes.id, apiContainerAppName, 'queuecontrib')
   scope: stRes
+  dependsOn: [ storage ]
   properties: {
     principalId: apiApp.outputs.principalId
     roleDefinitionId: roleStorageQueueDataContributor
@@ -583,6 +591,7 @@ resource queueContributorApi 'Microsoft.Authorization/roleAssignments@2022-04-01
 resource queueContributorWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(stRes.id, workerContainerAppName, 'queuecontrib')
   scope: stRes
+  dependsOn: [ storage ]
   properties: {
     principalId: workerApp.outputs.principalId
     roleDefinitionId: roleStorageQueueDataContributor
@@ -593,6 +602,7 @@ resource queueContributorWorker 'Microsoft.Authorization/roleAssignments@2022-04
 resource appConfigReaderApi 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(appConfigRes.id, apiContainerAppName, 'appconfigread')
   scope: appConfigRes
+  dependsOn: [ appConfig ]
   properties: {
     principalId: apiApp.outputs.principalId
     roleDefinitionId: roleAppConfigDataReader
@@ -603,6 +613,7 @@ resource appConfigReaderApi 'Microsoft.Authorization/roleAssignments@2022-04-01'
 resource appConfigReaderWorker 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
   name: guid(appConfigRes.id, workerContainerAppName, 'appconfigread')
   scope: appConfigRes
+  dependsOn: [ appConfig ]
   properties: {
     principalId: workerApp.outputs.principalId
     roleDefinitionId: roleAppConfigDataReader

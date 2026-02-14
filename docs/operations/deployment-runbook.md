@@ -47,7 +47,7 @@ Or run individually:
 
 ### 3.1 Resource groups and naming
 
-- Create one **resource group per environment** (e.g. `rg-saastpl-dev`, `rg-saastpl-staging`, `rg-saastpl-prod`) in your chosen region (e.g. `eastus`), or use `main.subscription.bicep` to bootstrap them.
+- Create one **resource group per environment** (e.g. `rg-saastpl-dev`, `rg-saastpl-staging`, `rg-saastpl-prod`) in your chosen region (e.g. `westus2`), or use `main.subscription.bicep` to bootstrap them.
 - Ensure **globally unique** names in `infra/bicep/params/*.bicepparam` for: `storageAccountName`, `keyVaultName`, `acrName`, `appConfigName` (and optionally `dnsRoot` for Front Door custom domains).
 
 ### 3.2 GitHub OIDC (federated credential) for infra and app pipelines
@@ -94,7 +94,7 @@ Configure **GitHub** → **Settings** → **Environments** → create `dev`, `st
 | `AZURE_RG_DEV` | Resource group name for dev (e.g. `rg-saastpl-dev`) | infra-validate, infra-deploy, app-deploy (dev) |
 | `AZURE_RG_STAGING` | Resource group name for staging | infra-deploy, app-deploy (staging) |
 | `AZURE_RG_PROD` | Resource group name for prod | infra-deploy, app-deploy (prod) |
-| `AZURE_LOCATION` | Region (e.g. `eastus`) | infra-deploy |
+| `AZURE_LOCATION` | Region (e.g. `westus2`) | infra-deploy |
 | `POSTGRES_ADMIN_PASSWORD` | Strong password for PostgreSQL admin (not committed) | infra-validate, infra-deploy |
 | `POSTGRES_APP_PASSWORD` | (Optional) Password for app user; if omitted, infra uses admin password | infra-deploy |
 | `ACR_NAME` | Name of the ACR (must match `acrName` in params, e.g. `acrsaastpldev1234`) | app-deploy |
@@ -135,7 +135,7 @@ From the repo root, with Azure CLI already logged in (`az login`):
 
 ```powershell
 $env:POSTGRES_ADMIN_PASSWORD = '<strong-password>'   # or use -PostgresAdminPassword
-./scripts/infra/deploy.ps1 -Environment dev -ResourceGroupName 'rg-saastpl-dev' -Location 'eastus'
+./scripts/infra/deploy.ps1 -Environment dev -ResourceGroupName 'rg-saastpl-dev' -Location 'westus2'
 ```
 
 If the resource group does not exist, the script creates it. Bicep deploys Postgres, Redis, Key Vault, ACR, Storage, App Config, Container Apps Environment, Front Door, and placeholder Container Apps (API, Worker, Admin UI) with default images.
@@ -210,9 +210,24 @@ After first deploy (or after any infra/app change), verify:
 | Worker | If you have queues, submit a job and confirm the worker processes it (logs or side effects). |
 | DB connectivity | API and Worker use Key Vault-backed Postgres password; check app logs for connection errors. |
 
-## 8. References
+## 8. Troubleshooting deployment failures
 
-- **Infra**: `infra/bicep/README.md`, `infra/bicep/main.rg.bicep`, `scripts/infra/deploy.ps1`, `scripts/infra/whatif.ps1`
+| Failure | Cause | Action |
+|--------|--------|--------|
+| **Admin UI or API Container App operation expired** | Container Apps provisioning can take several minutes; revision provisioning may time out. | API, Worker, and Admin UI are deployed in sequence (API → Worker → Admin UI) to reduce load on the control plane. If it still times out, retry the deployment (idempotent); or increase Azure deployment timeout. |
+| **App Configuration NameUnavailable** | The chosen `appConfigName` is already in use globally or by a **soft-deleted** store. | **Deploy script** purges soft-deleted App Config stores matching `appcs-<appName>-<env>-*` before deploy (idempotent). Use the default `appConfigName` (omit in params) so the name is unique per RG. To reuse a name after destroy, run `destroy.ps1` first—it purges soft-deleted App Config stores so you can redeploy. See [App Configuration soft delete](https://aka.ms/appconfig/soft-delete). |
+| **PostgreSQL SkuNotAvailable** | The chosen SKU (e.g. `Standard_D2s_v6`) is not available in the selected region. | Dev/staging use Burstable `Standard_B1ms` (widely available). For prod in some regions, choose a [supported SKU](https://learn.microsoft.com/azure/postgresql/flexible-server/concepts-compute) or use a region where the desired SKU is available. |
+| **Worker scale rule invalid (azure-storage-queue not supported)** | Custom scale rule type must be `azure-queue` for Azure Storage Queue, not `azure-storage-queue`. | Fixed in `main.rg.bicep`: worker scale rules use `type: 'azure-queue'` with metadata `queueName`, `queueLength`, `accountName` and auth `secretRef`/`triggerParameter: 'connection'`. |
+| **ResourceNotFound for Storage or Redis** | Variables that call `listKeys()` on storage/Redis were evaluated at deployment start, before those resources existed. | Fixed in `main.rg.bicep`: `listKeys()` is inlined in the Key Vault secret resources (with `dependsOn` on storage/redis) so ARM evaluates them only after those modules deploy. Ensure you use the latest template and re-run. |
+
+## 9. Destroy and redeploy
+
+- **Destroy** (`scripts/infra/destroy.ps1`): Deletes the resource group and **purges** any soft-deleted App Configuration stores that were in that RG, so the same App Config names can be reused on the next deploy. Idempotent: safe to re-run; no-op if RG or stores are already gone.
+- **Redeploy**: Run `deploy.ps1` after destroy; it purges any remaining soft-deleted App Config stores matching your app/env prefix before creating resources.
+
+## 10. References
+
+- **Infra**: `infra/bicep/README.md`, `infra/bicep/main.rg.bicep`, `scripts/infra/deploy.ps1`, `scripts/infra/destroy.ps1`, `scripts/infra/whatif.ps1`
 - **CI**: `.github/workflows/infra-validate.yml`, `.github/workflows/infra-deploy.yml`, `.github/workflows/app-deploy.yml`
 - **App deploy**: `scripts/deploy/aca-bluegreen.ps1`
 - **Admin UI**: `src/AdminUi/README.md`, `.env.example`

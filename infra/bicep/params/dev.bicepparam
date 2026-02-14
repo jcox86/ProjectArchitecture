@@ -12,14 +12,14 @@ using '../main.rg.bicep'
 
 param appName = 'saastpl'
 param environmentName = 'dev'
-param location = 'eastus'
+param location = 'westus2'
 
 // DNS root for Front Door custom domains (admin.<root>, *.<root>).
 param dnsRoot = 'example.com'
 
 // Globally-unique names required by Azure for these resources.
+// appConfigName defaults in main.rg.bicep to a unique value per RG (uniqueString); override here only if needed.
 param storageAccountName = 'stsaastpldev1234'
 param keyVaultName = 'kv-saastpl-dev-1234'
 param acrName = 'acrsaastpldev1234'
-param appConfigName = 'appcs-saastpl-dev-1234'
 

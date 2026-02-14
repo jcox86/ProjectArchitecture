@@ -5,6 +5,7 @@ exports:
   - Deploy-Infrastructure: main entrypoint function
 patterns:
   - repeatable_scripts: safe to re-run; uses ARM/Bicep idempotence
+  - idempotent: purges conflicting soft-deleted App Config stores before deploy
 notes:
   - Requires Azure CLI (`az`) logged in (or CI OIDC login).
   - Uses `az deployment group create` with a bicepparam file.
@@ -20,7 +21,7 @@ param(
   [string] $ResourceGroupName,
 
   [Parameter()]
-  [string] $Location = 'eastus',
+  [string] $Location = 'westus2',
 
   [Parameter()]
   [string] $PostgresAdminPassword,
@@ -31,6 +32,41 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Get-AppNameFromParamFile {
+  param([string] $ParamFilePath)
+  if (-not (Test-Path $ParamFilePath)) { return 'saastpl' }
+  $content = Get-Content -Raw -Path $ParamFilePath
+  if ($content -match "param\s+appName\s*=\s*['""]([^'""]+)['""]") { return $Matches[1].Trim() }
+  return 'saastpl'
+}
+
+function Purge-SoftDeletedAppConfigStoresMatchingPrefix {
+  param([string] $Prefix)
+  try {
+    $json = az appconfig list-deleted --output json 2>$null
+    if (-not $json) { return }
+    $list = $json | ConvertFrom-Json
+    if (-not $list) { return }
+    if (-not ($list -is [array])) { $list = @($list) }
+    foreach ($store in $list) {
+      if ($store.name -and $store.name.StartsWith($Prefix, [StringComparison]::OrdinalIgnoreCase)) {
+        $name = $store.name
+        $location = $store.location
+        if (-not $location) { continue }
+        Write-Host "Purging soft-deleted App Configuration store '$name' so name can be reused..."
+        try {
+          az appconfig purge --name $name --location $location --yes 2>&1 | Out-Null
+          Write-Host "Purged '$name'."
+        } catch {
+          Write-Host "Purge of '$name' skipped or failed: $_"
+        }
+      }
+    }
+  } catch {
+    # list-deleted may fail (e.g. no permission or none deleted); continue with deploy
+  }
+}
+
 function Deploy-Infrastructure {
   Write-Host "Deploying infra for '$Environment' to RG '$ResourceGroupName' in '$Location'..."
 
@@ -39,6 +75,11 @@ function Deploy-Infrastructure {
 
   if (-not (Test-Path $templateFile)) { throw "Missing Bicep template: $templateFile" }
   if (-not (Test-Path $paramFile)) { throw "Missing params: $paramFile" }
+
+  # Purge any soft-deleted App Configuration stores that would conflict with our appConfig name (idempotent).
+  $appName = Get-AppNameFromParamFile -ParamFilePath $paramFile
+  $appConfigPrefix = "appcs-$appName-$Environment-"
+  Purge-SoftDeletedAppConfigStoresMatchingPrefix -Prefix $appConfigPrefix
 
   # Ensure RG exists (create if missing).
   $rgExists = (az group exists --name $ResourceGroupName) | ConvertFrom-Json
