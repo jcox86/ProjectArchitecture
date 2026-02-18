@@ -1,0 +1,45 @@
+---
+description: Apply KISS — start with the simplest workable design and reduce complexity.
+alwaysApply: true
+---
+
+# KISS — Keep It Simple
+
+Always start with the **simplest** approach that solves the problem, then evolve only when needed.
+
+## Start simple, avoid over-engineering
+
+- Prefer clear, straightforward code over clever abstractions.
+- Do not introduce patterns, layers, or indirection until there is a concrete need.
+- Favor readability and maintainability over premature generalization.
+
+```text
+# ❌ BAD
+- Add multiple abstraction layers and interfaces before there is a second implementation.
+- Design for many hypothetical features that may never ship.
+
+# ✅ GOOD
+- Implement the straightforward solution first.
+- Extract interfaces/abstractions only when you have real duplication or variants.
+```
+
+## Break problems into small pieces
+
+- Split complex logic into **small, focused functions** that each do one thing well.
+- Keep modules and classes small and cohesive; avoid “god objects” that know/do everything.
+- When a function grows large or hard to reason about, break it into simple helpers.
+
+```text
+# ❌ BAD
+- Single 300-line method that handles validation, mapping, I/O, and error handling.
+
+# ✅ GOOD
+- Separate functions for validateInput, mapToModel, saveChangesAsync, and buildResponse.
+```
+
+## Simplicity as a default
+
+- When choosing between designs, pick the one with **fewer moving parts** and clearer behavior.
+- Prefer explicit, boring solutions over magic or heavy indirection.
+- Refactor toward simplicity as features evolve; remove complexity that is no longer needed.
+

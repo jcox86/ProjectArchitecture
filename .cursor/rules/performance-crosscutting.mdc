@@ -1,0 +1,52 @@
+---
+description: Cross-cutting performance guidelines for .NET backends and web UIs
+alwaysApply: true
+---
+
+# Performance Guidelines (Cross-cutting)
+
+Focus on performance by default, especially in hot paths and shared libraries.
+
+## .NET code (allocations and loops)
+
+- Prefer **stack or value types** and avoid unnecessary heap allocations in tight loops and hot paths.
+- Avoid allocating new collections or objects inside inner loops when they can be reused.
+- Do not iterate the same collection multiple times when a **single pass** can compute everything needed.
+
+```csharp
+// ❌ BAD: multiple passes + allocations
+var positives = items.Where(x => x.Value > 0).ToList();
+var negatives = items.Where(x => x.Value < 0).ToList();
+
+// ✅ BETTER: single pass
+var positives = new List<Item>();
+var negatives = new List<Item>();
+foreach (var item in items)
+{
+    if (item.Value > 0) positives.Add(item);
+    else if (item.Value < 0) negatives.Add(item);
+}
+```
+
+## Web/UI code (re-renders and bundle size)
+
+- Avoid unnecessary re-renders: keep reactive state minimal and colocated with the components that need it.
+- Prefer memoization/computed values over recalculating expensive values on every render.
+- Keep bundle size small: avoid large, unused dependencies; use **code-splitting/lazy loading** for rarely used routes/features.
+
+```text
+# ❌ BAD
+- Global state stores everything; minor changes cause full app re-render.
+- Large UI libraries imported globally when only a few components are needed.
+
+# ✅ GOOD
+- State is scoped to pages/components; derived state uses computed/memoized helpers.
+- Heavy components and rarely used routes are lazy-loaded.
+```
+
+## UI responsiveness (avoid blocking)
+
+- Never block the UI thread with long-running synchronous work; offload to background tasks, workers, or async APIs.
+- Use async/await and non-blocking I/O whenever possible.
+- For expensive operations, provide progress/feedback and keep the UI interactive.
+

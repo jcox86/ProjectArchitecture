@@ -32,6 +32,7 @@ Start here. This file is the canonical entrypoint for any AI assistant working i
 - **DB change (Flyway, planned)**: `.cursor/skills/db-change-flyway/SKILL.md`
 - **Add a domain module end-to-end (planned)**: `.cursor/skills/add-module/SKILL.md`
 - **Incident triage (planned)**: `.cursor/skills/incident-triage/SKILL.md`
+- **Stripe (billing)**: `.cursor/skills/stripe/SKILL.md`
 
 ## Review playbooks (checklists)
 
@@ -43,4 +44,5 @@ Use these when reviewing changes or asking the assistant to “act as” a speci
 - `docs/ai/subagents/performance-reviewer.md`
 - `docs/ai/subagents/db-reviewer.md`
 - `docs/ai/subagents/test-harness-coverage.md` — single pane of glass for test harness and coverage (unit, integration, e2e, infra, DB) across APIs and UIs.
+- `docs/ai/subagents/build-deploy-cicd.md` — configure and test compiling, deployment scripts, and packages; ensure deploy readiness and CI/CD automation.
 
